@@ -14,12 +14,8 @@
 % 3) The spreadsheet has to be closed and saved in order for MATLAB to 
 % process it
 %
-% 4) Do not edit sheet names or Database name (name of whole excel 
-% document) in excel
-%
-% 5) Do not name variables (column names in excel) with special characters
-% such as ! or ()
-% 
+% 4) Do not edit sheet names or Database name (name of whole excel document) in excel
+% close all hidden; clear; clc
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Spreadsheet = 'Database.xlsx';
@@ -29,17 +25,19 @@ ProcessDatabase(Spreadsheet)
 %%
 function [] = ProcessDatabase(Spreadsheet)
 
-ParseDatabase(Spreadsheet)
-NormalizeDatabase()
-
-normTypes = {'Raw','BS'};
-plotTypes = {'Average','Animal'};
-
 % remove folder if it exists already to avoid confusion between
 % different analyses
 if isfolder('outputs')
     rmdir('outputs', 's');
 end
+
+mkdir('outputs')
+
+ParseDatabase(Spreadsheet)
+NormalizeDatabase()
+
+normTypes = {'Raw','BS'};
+plotTypes = {'Average','Animal'};
 
 for plotType = plotTypes
     for normType = normTypes
@@ -216,19 +214,16 @@ studyID = fieldnames(proc_data.database);
 % iterate through each study ID
 for i = 1:numel(studyID)
 
+    exportPath = fullfile('outputs',studyID{i});
+
+    % make dir
+    if ~isfolder(exportPath)
+        mkdir(exportPath)
+    end
+
     % define output filename based on StudyID
-    filename = fullfile('outputs',studyID{i},'Summary statistics.xlsx');
+    filename = fullfile(exportPath,'Summary statistics.xlsx');
 
-    % delete processed file if it exists
-    if isfile(filename)
-        delete(filename)
-    end
-
-    % make output dir if it doesnt exist
-    if ~isfolder(fullfile('outputs',studyID{i}))
-        mkdir('outputs',studyID{i})
-    end
-    
     % obtain the groups within the study
     groupID = fieldnames(proc_data.database.(studyID{i}));
 
@@ -429,7 +424,7 @@ for i = 1:numel(studyID)
 
             if rem(k,8) == 0
                 % create global legend
-                createLegend(p,conditionID)
+                createLegend(conditionID)
                 % export figure
                 [fig, ExportCount] = ExportFigure(ExportCount, fig, exportFolder);
             end
@@ -437,7 +432,7 @@ for i = 1:numel(studyID)
     end
     if rem(k,8) ~= 0
         % create global legend
-        createLegend(p,conditionID)
+        createLegend(conditionID)
         % export figure
         [fig, ExportCount] = ExportFigure(ExportCount, fig, exportFolder);
     end
@@ -501,14 +496,7 @@ end
 %%
 function [ax, p] = plotData(ax, p, count, stats, plotType)
 
-% define colors for survivor / non survivor
-if count <= 2
-    col = [0.5 0 0; 0 0 0];
-else
-    %if more than two groups in future create more colors
-    col = lines(count);
-end
-
+[col] = getPlotColor(count);
 
 switch plotType
     case 'Average'
@@ -556,6 +544,17 @@ end
 
 end
 
+function [col] = getPlotColor(count)
+
+% define colors for survivor / non survivor
+if count <= 2
+    col = [0.5 0 0; 0 0 0];
+else
+    %if more than two groups in future create more colors
+    col = lines(count);
+end
+
+end
 %%
 function [fig, ExportCount] = ExportFigure(ExportCount, fig, folder)
 
@@ -576,7 +575,19 @@ t = tiledlayout(4,2,'TileSpacing','compact','Padding','compact');
 end
 
 %%
-function [] = createLegend(p,conditionID)
+function [] = createLegend(conditionID)
+
+[col] = getPlotColor(numel(conditionID));
+
+for i = 1:size(col,1)
+    p(i) = plot(NaN, NaN,'o-', ...
+        'linewidth',2,...
+        'MarkerEdgeColor',col(i,:), ...
+        'MarkerFaceColor',col(i,:), ...
+        'Color',col(i,:), ...
+        'displayname',replace(conditionID{i},'_','-'));
+end
+
 % create global legend
 lg = legend(p, 'location','northoutside','NumColumns',numel(conditionID),'box','off');
 lg.Layout.Tile = 'north';
